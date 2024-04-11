@@ -1,0 +1,272 @@
+
+100009
+main()
+{
+    int i, j, v1, v2, t;
+    FILE *fp = fopen("", "");
+    scanf("", StationBegin, StationEnd);
+    for (i = 0; i < M; i++) 
+        for (j = 0; j < M; j++)
+        {
+            map[i][j].weight = map[j][i].weight = INF; 
+            map[i][j].lineID = map[j][i].lineID = 0;   
+        }
+    DrawSubwayMap(fp);                 
+    v1 = SearchMap(StationBegin);      
+	
+    v2 = SearchMap(StationEnd);        
+	
+    dijkstra(v1, v2);                  
+    for (t = v2; t != v1; t = prev[t]) 
+    {
+        path[top] = t;
+        top++;
+    }
+    PrintPath(v1, v2); 
+    return 0;
+}
+DrawSubwayMap(FILE *fp)
+{
+    int i, j, ContainID, EdgeLast; 
+    char stationName[30];          
+    fscanf(fp, "", &lineNum);
+    for (i = 0; i < lineNum; i++)
+    {
+        fscanf(fp, "", &lineID, &StationNum);
+        EdgeLast = -1; 
+        for (j = 0; j < StationNum; j++)
+        {
+            fscanf(fp, "", stationName, &IsChange);
+			
+            ContainID = SearchMap(stationName); 
+            if (ContainID == -1)                
+            {
+                strcpy(StationID_list[VerNum].stationName, stationName); 
+                StationID_list[VerNum].IsChange = IsChange;              
+                if (EdgeLast != -1)                                      
+                {
+                    map[EdgeLast][VerNum].lineID = map[VerNum][EdgeLast].lineID = lineID; 
+                    map[EdgeLast][VerNum].weight = map[VerNum][EdgeLast].weight = 1;      
+                }
+                EdgeLast = VerNum; 
+                VerNum++;          
+            }
+            else
+            {
+                if (EdgeLast != -1) 
+                {
+                    map[EdgeLast][ContainID].lineID = map[ContainID][EdgeLast].lineID = lineID; 
+                    map[EdgeLast][ContainID].weight = map[ContainID][EdgeLast].weight = 1;      
+                }
+                EdgeLast = ContainID; 
+            }
+        }
+    }
+}
+SearchMap(char *s)
+{
+    int i;
+    for (i = 0; i < VerNum; i++)
+        if (strcmp(s, StationID_list[i].stationName) == 0)
+            return i; 
+    return -1;
+}
+dijkstra(int vs, int ve)
+{
+    int i, j, k, min, tmp;
+    int flag[M];                 
+    for (i = 0; i < VerNum; i++) 
+    {
+        flag[i] = 0;                 
+        prev[i] = vs;                
+        dist[i] = map[vs][i].weight; 
+    }
+    dist[vs] = 0, flag[vs] = 1;      
+    for (i = 0; i < VerNum - 1; i++) 
+    {                                
+        min = INF;
+        for (j = 0; j < VerNum; j++)
+        {
+            if (flag[j] == 0 && dist[j] < min)
+            {
+                min = dist[j];
+                k = j;
+            }
+        }
+        flag[k] = 1; 
+        
+        if (k == ve)
+            return;
+        for (j = 0; j < VerNum; j++)
+        {
+            tmp = (map[k][j].weight == INF ? INF : (min + map[k][j].weight)); 
+            if (flag[j] == 0 && (tmp < dist[j]) && map[k][j].lineID > 0)
+            {
+                dist[j] = tmp;
+                prev[j] = k; 
+            }
+        }
+    }
+}
+PrintPath(int v1, int v2)
+{
+    int i, EdgeLast = v1, pathLen = 1, u = path[top - 1];    
+    int lineId = map[EdgeLast][u].lineID;                    
+    printf("", StationID_list[v1].stationName, lineId); 
+    EdgeLast = u;
+    for (i = top - 2; i >= 0; i--) 
+    {
+        u = path[i];                           
+        if (lineId != map[EdgeLast][u].lineID) 
+        {
+            lineId = map[EdgeLast][u].lineID;
+            printf("", pathLen, StationID_list[EdgeLast].stationName, lineId);
+            pathLen = 0;
+        }
+        pathLen++;    
+        EdgeLast = u; 
+    }
+    printf("", pathLen, StationID_list[v2].stationName); 
+}
+
+100011
+main(void)
+{
+    initMap();
+    char * st_beg = (char *)calloc(MAXLEN, sizeof(char));
+    char * st_end = (char *)calloc(MAXLEN, sizeof(char));
+    scanf("", st_beg);
+    scanf("", st_end);
+    int v0 = findSt(st_beg);
+    int v1 = findSt(st_end);
+    int * spath = (int *)calloc(writer, sizeof(int));
+    Dijikstra(v0, v1, spath);
+    printPath(v0, v1, spath);
+
+    return 0;
+}
+initMap()
+{
+    for(int i = 0; i < MAXNUM; i++)
+    {
+        for(int j = 0; j < MAXNUM; j++)
+        {
+            BGweights[i][j].wei = INFINITY;
+        }
+    }
+    FILE * fp = fopen("", "");
+    int i, j, snum, lno, lnum, v1, v2;
+    struct station st;
+    fscanf(fp, "", &snum);
+    for(i = 0; i < snum; i++)
+    {
+        fscanf(fp, "", &lno, &lnum);
+        v1 = -1;
+        v2 = -1;
+        for(j = 0; j < lnum; j++)
+        {
+            fscanf(fp, "", st.sname, &(st.ischange));
+            v2 = addVertex(st);
+            if(v1 != -1)
+            {
+                BGweights[v1][v2].wei = 1;
+                BGweights[v2][v1].wei = 1;
+                BGweights[v1][v2].lno = lno;
+                BGweights[v2][v1].lno = lno;
+            }
+            v1 = v2;
+        }
+    }
+    fclose(fp);
+    return;
+}
+addVertex(struct station st)
+{
+    for(int i = 0; i < writer; i++)
+    {
+        if(strcmp(BGvertex[i].sname, st.sname) == 0)
+        {
+            return i;
+        }
+    }
+    strcpy(BGvertex[writer].sname, st.sname);
+    BGvertex[writer].ischange = st.ischange;
+    return (writer++);
+}
+Dijikstra(int v0, int v1, int spath[])
+{
+    int i, j, v = 0, minweight;
+    char wfound[MAXNUM] = {0};
+    int sweight[MAXNUM] = {0};
+    for(i = 0; i < writer; i++)
+    {
+        sweight[i] = BGweights[v0][i].wei;
+        spath[i] = v0;
+    }
+    sweight[v0] = 0;
+    wfound[v0] = 1;
+    for(i = 0; i < writer - 1; i++)
+    {
+        minweight = INFINITY;
+        for(j = 0; j < writer; j++)
+        {
+            if((!wfound[j]) && (sweight[j] < minweight))
+            {
+                v = j;
+                minweight = sweight[v];
+            }
+        }
+        wfound[v] = 1;
+        if(v == v1)
+        {
+            return;
+        }
+        for(j = 0; j < writer; j++)
+        {
+            if((!wfound[j]) && (BGweights[v][j].lno > 0) && (minweight + BGweights[v][j].wei < sweight[j]))
+            {
+                sweight[j] = minweight + BGweights[v][j].wei;
+                spath[j] = v;
+            }
+        }
+        
+    }
+}
+printPath(int v0, int v1, int spath[])
+{
+    char path[80] = {0}, buf[80] = {0};
+    int board[80] = {0}, bcount = 0, line = -1, sc = 0;
+    int i;
+    do{
+        board[bcount++] = v1;
+    }while((v1 = spath[v1]) != v0);
+    board[bcount++] = v0;
+    line = BGweights[board[bcount - 1]][board[bcount - 2]].lno;
+    sprintf(buf, "", BGvertex[board[bcount - 1]].sname, line);
+    strcpy(path, buf);
+    sc = 1;
+    for(i = bcount - 2; i > 0; i--, sc++)
+    {
+        if(BGweights[board[i]][board[i - 1]].lno != line)
+        {
+            line = BGweights[board[i]][board[i - 1]].lno;
+            sprintf(buf, "", sc, BGvertex[board[i]].sname, line);
+            strcat(path, buf);
+            sc = 0;
+        }
+    }
+    sprintf(buf, "", sc, BGvertex[board[i]].sname);
+    strcat(path, buf);
+    puts(path);
+}
+findSt(char * name)
+{
+    for(int i = 0; i < writer; i++)
+    {
+        if(strcmp(BGvertex[i].sname, name) == 0)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
