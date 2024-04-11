@@ -9,7 +9,7 @@ typedef struct keepword {
     int isEnd; 
     struct keepword* next[MAX_CHILD];  
 }keepword;
-keepword *root = NULL;
+
 
 typedef struct content
 {//link
@@ -22,11 +22,16 @@ typedef struct stream{//link
     struct stream* next;
 }stream;
 
+typedef struct function{
+    char name[50];
+    stream fstream;
+}function;
+
 typedef struct program
 {
     int id;
     content *head_c,*ptr_c,*last_c;
-    char pFunction[50][51];
+    function pFunction[50];
     int pFnum;
     stream* head_s,*ptr_s,*last_s;
 }Program;
@@ -39,9 +44,10 @@ void dfs(keepword *p);
 
 void read_code();
 void idf_pFunction(int i);
-void gnrt_stream(int i);
+void gnrt_stream(content*, function*);
 
-//array
+//element
+keepword *root = NULL;
 char t[1024];
 int numOfPrograms = 0;
 Program *programs[MAXPN],*temp_P;
@@ -49,7 +55,7 @@ Program *programs[MAXPN],*temp_P;
 int main(){
     //预处理keepword
     FILE *kw,*fc;
-    kw = fopen("keepwords.txt","r");
+    kw = fopen("D:\\Git\\DS Homework\\DS Homeworkkeepwords.txt","r");
     root = new_word();
 
     int cnt=1;
@@ -160,11 +166,12 @@ void idf_pFunction(int i){
     temp_P = programs[i];
     temp_P->ptr_c = temp_P->head_c;
     memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));
+    content* pMain = NULL;
     while(temp_P->ptr_c != NULL){
         if(isalpha(temp_P->ptr_c->line[0])){
             int j = 0;
             while(isalpha(temp_P->ptr_c->line[j])){
-                temp_P->pFunction[Fnum][j] = temp_P->ptr_c->line[j];
+                temp_P->pFunction[Fnum].name[j] = temp_P->ptr_c->line[j];
                 j++;
             }
             // debug pFunction
@@ -172,15 +179,56 @@ void idf_pFunction(int i){
             // while(temp_P->pFunction[Fnum][k]) printf("%c",temp_P->pFunction[Fnum][k++]);
             // putchar('\n');
             // //
+            if(strcmp(temp_P->pFunction[Fnum].name,"main") != 0) gnrt_stream(temp_P->ptr_c->next->next,&(temp_P->pFunction[Fnum]));
+            else pMain = temp_P->ptr_c;
+            //
+            printf("%s\n",temp_P->pFunction[Fnum].fstream);
+            //
             Fnum++;
+            
+           
         }
         temp_P->ptr_c = temp_P->ptr_c->next;
     }
     temp_P->pFnum = Fnum;
+    //最后再处理main
+    // gnrt_main_stream(pMain);
 }
 
-void gnrt_stream(int i){
-    //改上面的idf函数，在获取函数名的同时产生流
-    //如果是main函数，先跳过，如果不是，则记录函数名，同时产生该函数的流
-    //最后处理主函数
+void gnrt_stream(content* ptr,function* f){
+    int sumBig = 1, numOfsc = 1;//{
+    char c;
+    f->fstream.stream = (char*)malloc(sizeof(char)*2048);
+    //memset?
+    char* temp_s = f->fstream.stream;
+    temp_s[0] = '{';
+    while(!sumBig){
+        int i=0;
+        while(ptr->line[i]){
+            c = ptr->line[i];
+            //通过识别大括号个数以确定该函数是否已经结束
+            if(c == '{') sumBig++;
+            else if(c == '}') sumBig--;
+            //删除空白符
+            if(c == ' ' || c == '\n' || c == '\r' || c == '\t') continue;
+            else if(isalpha(c)){
+                int anci = i, ancn = numOfsc;
+                keepword* pTrie = root;
+                while(pTrie->next[ptr->line[i] - '_'] != NULL){
+                    temp_s[numOfsc++] = ptr->line[i];
+                    pTrie = pTrie->next[ptr->line[i] - '_'];
+                    i++;
+                }
+                if(pTrie->isEnd == 0){
+                    //树中没有该词
+                    i = anci;
+                    numOfsc = ancn;  
+                }
+                continue;
+            }
+            temp_s[numOfsc++] = ptr->line[i++];
+        }
+        temp_s[numOfsc] = '\0';
+        ptr = ptr->next;//正好直接进入下一个函数
+    }
 }
