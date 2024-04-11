@@ -55,7 +55,7 @@ Program *programs[MAXPN],*temp_P;
 int main(){
     //预处理keepword
     FILE *kw,*fc;
-    kw = fopen("D:\\Git\\DS Homework\\DS Homeworkkeepwords.txt","r");
+    kw = fopen("keepwords.txt","r");
     root = new_word();
 
     int cnt=1;
@@ -202,33 +202,42 @@ void gnrt_stream(content* ptr,function* f){
     //memset?
     char* temp_s = f->fstream.stream;
     temp_s[0] = '{';
-    while(!sumBig){
+    while(sumBig){
         int i=0;
         while(ptr->line[i]){
             c = ptr->line[i];
+            // printf("%d\n",c);
+            putchar(c);
             //通过识别大括号个数以确定该函数是否已经结束
             if(c == '{') sumBig++;
             else if(c == '}') sumBig--;
             //删除空白符
-            if(c == ' ' || c == '\n' || c == '\r' || c == '\t') continue;
+            else if(c == ' ' || c == '\n' || c == '\r' || c == '\t' || !(islower(ptr->line[i])||ptr->line[i] == '_')){
+                i++;
+                continue;
+            }
             else if(isalpha(c)){
-                int anci = i, ancn = numOfsc;
+                int ancn = numOfsc;
                 keepword* pTrie = root;
-                while(pTrie->next[ptr->line[i] - '_'] != NULL){
+                int sign = 0;
+                while(pTrie->next[ptr->line[i] - '_'] != NULL && (islower(ptr->line[i])||ptr->line[i] == '_')){
+                    sign = 1;
                     temp_s[numOfsc++] = ptr->line[i];
                     pTrie = pTrie->next[ptr->line[i] - '_'];
                     i++;
                 }
                 if(pTrie->isEnd == 0){
                     //树中没有该词
-                    i = anci;
-                    numOfsc = ancn;  
+                    // i = anci;
+                    numOfsc = ancn;
+                    if(!sign) i++;
                 }
                 continue;
             }
             temp_s[numOfsc++] = ptr->line[i++];
         }
         temp_s[numOfsc] = '\0';
+
         ptr = ptr->next;//正好直接进入下一个函数
     }
 }
