@@ -2,9 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#define MAX_CHILD 28
+#define MAX_CHILD 37
 #define MAXPN 10 //提交时改大
 //struct
+
+char asc[] = {'0','1','2','3','4','5','6','7','8','9','_',
+                'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'};
+int hash[128];
+
 typedef struct keepword {
     int isEnd; 
     struct keepword* next[MAX_CHILD];  
@@ -56,6 +61,10 @@ int main(){
     //预处理keepword
     FILE *kw,*fc;
     kw = fopen("keepwords.txt","r");
+    memset(hash,-1,sizeof(hash));
+    for(int i=0;i<MAX_CHILD;i++){
+        hash[asc[i]] = i;
+    }
     root = new_word();
 
     int cnt=1;
@@ -116,6 +125,7 @@ int main(){
 
 keepword *new_word(){
     keepword *t = (keepword*)malloc(sizeof(keepword));
+    int i=0;
     for(int i=0;i<MAX_CHILD;i++) t->next[i] = NULL;
     t->isEnd = 0;
     return t;
@@ -123,11 +133,12 @@ keepword *new_word(){
 
 void insert_word(keepword *t, char *str,int len){
     for(int i=0;i<len;i++){
-        if(t->next[str[i]-'_'] == NULL){
+        if(t->next[hash[str[i]]] == NULL){
            keepword *p = new_word();
-           t->next[str[i]-'_'] = p; 
+           t->next[hash[str[i]]] = p;
+           for(int i=0;i<=9;i++) t->next[hash[asc[i]]] = p;
         }
-        t = t->next[str[i]-'_'];
+        t = t->next[hash[str[i]]];
     }
     t->isEnd = 1;
 }
@@ -213,7 +224,7 @@ char* gnrt_stream(content* ptr){
             if(c == '{') sumBig++;
             else if(c == '}') sumBig--;
             //删除空白符
-            else if(c == ' ' || c == '\r' || c == '\t' /*|| !(islower(ptr->line[i])||ptr->line[i] == '_')*/){
+            else if(c == ' ' || c == '\r' || c == '\t' || isupper(c)/*|| !(islower(ptr->line[i])||ptr->line[i] == '_')*/){
                 // if(c == '\n'){
                 //     i=0;
                 //     ptr = ptr->next;
@@ -222,14 +233,14 @@ char* gnrt_stream(content* ptr){
                 i++;
                 continue;
             }
-            else if(isalpha(c)){
+            else if(isalpha(c)||c == '_'){
                 int ancn = numOfsc;
                 keepword* pTrie = root;
                 int sign = 0;
-                while(pTrie->next[ptr->line[i] - '_'] != NULL && (islower(ptr->line[i])||ptr->line[i] == '_')){
+                while( hash[ptr->line[i]] >= 0 && pTrie->next[hash[ptr->line[i]]] != NULL){
                     sign = 1;
                     temp_s[numOfsc++] = ptr->line[i];
-                    pTrie = pTrie->next[ptr->line[i] - '_'];
+                    pTrie = pTrie->next[hash[ptr->line[i]]];
                     i++;
                 }
                 if(pTrie->isEnd == 0){
