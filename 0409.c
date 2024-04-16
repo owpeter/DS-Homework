@@ -29,6 +29,7 @@ typedef struct stream{//link
 
 typedef struct function{
     char name[50];
+    content* pos;
     stream fstream;
 }function;
 
@@ -48,7 +49,7 @@ void insert_word(keepword *t, char *str,int len);
 void dfs(keepword *p);
 
 void read_code();
-void idf_pFunction(int i);
+// void idf_pFunction(int i);
 char* gnrt_stream(content*);
 
 //element
@@ -87,6 +88,8 @@ int main(){
             temp_P->id = id;
             temp_P->head_c = NULL;
             temp_P->head_s = NULL;
+            temp_P->pFnum = 0;
+            memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));//?????
             continue;
         }
         read_code();
@@ -109,7 +112,31 @@ int main(){
     // }
     //
     for(int i=0;i<numOfPrograms;i++){
-        idf_pFunction(i);
+        // printf("%d\n",programs[i]->id);
+        // idf_pFunction(i);
+        temp_P = programs[i];
+        temp_P->ptr_c = temp_P->head_c;
+        while(temp_P->ptr_c){
+            if(isalpha(temp_P->ptr_c->line[0])){
+                int j=0;
+                char tn[51];
+                while(isalpha(temp_P->ptr_c->line[j])){
+                    tn[j] = temp_P->ptr_c->line[j];
+                    j++;
+                }
+                tn[j] = '\0';
+                //
+                puts(tn);
+                //
+                for(int i=0;i<temp_P->pFnum;i++){
+                    if(strcmp(tn,temp_P->pFunction[i].name)){
+                        //生成流
+                        temp_P->pFunction[i].fstream.stream = gnrt_stream(temp_P->pFunction[i].pos);
+                        printf("%s\n",temp_P->pFunction[i].fstream.stream);
+                    }
+                }
+            }
+        }
     }
 
     // FILE *out;
@@ -176,43 +203,54 @@ void read_code(){
         temp_P->last_c = temp_P->ptr_c;
         temp_P->last_c->next = NULL;
     }
-}
-
-void idf_pFunction(int i){
-    int Fnum = 0;
-
-    temp_P = programs[i];
-    temp_P->ptr_c = temp_P->head_c;
-    memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));
-    content* pMain = NULL;
-    while(temp_P->ptr_c != NULL){
-        if(isalpha(temp_P->ptr_c->line[0])){
-            int j = 0;
-            while(isalpha(temp_P->ptr_c->line[j])){
-                temp_P->pFunction[Fnum].name[j] = temp_P->ptr_c->line[j];
-                j++;
-            }
-            if(strcmp(temp_P->pFunction[Fnum].name,"main") != 0){
-                temp_P->pFunction[Fnum].fstream.stream = gnrt_stream(temp_P->ptr_c->next->next);
-            }
-            else pMain = temp_P->ptr_c;
-            //
-            printf("%s\n",temp_P->pFunction[Fnum].fstream.stream);
-            //
-            Fnum++;
+    if(isalpha(t[0])){
+        int j=0;
+        while(isalpha(t[j])){
+            //录入函数名字
+            temp_P->pFunction[temp_P->pFnum].name[j] = t[j];
+            j++;
         }
-        temp_P->ptr_c = temp_P->ptr_c->next;
+        temp_P->pFunction[temp_P->pFnum].pos = temp_P->ptr_c->next;
+        temp_P->pFnum++;
     }
-    temp_P->pFnum = Fnum;
-    //最后再处理main
-    // gnrt_main_stream(pMain);
 }
+
+// void idf_pFunction(int i){
+//     // int Fnum = 0;
+
+//     temp_P = programs[i];
+//     temp_P->ptr_c = temp_P->head_c;
+//     // memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));
+//     content* pMain = NULL;
+//     while(temp_P->ptr_c != NULL){
+//         if(isalpha(temp_P->ptr_c->line[0])){
+//             // int j = 0;
+//             // while(isalpha(temp_P->ptr_c->line[j])){
+//             //     //录入函数名
+//             //     temp_P->pFunction[Fnum].name[j] = temp_P->ptr_c->line[j];
+//             //     j++;
+//             // }
+//             if(strcmp(temp_P->pFunction[Fnum].name,"main") != 0){
+//                 //生成函数流
+//                 temp_P->pFunction[Fnum].fstream.stream = gnrt_stream(temp_P->ptr_c->next->next);
+//             }
+//             else pMain = temp_P->ptr_c;
+//             //
+//             printf("%s\n",temp_P->pFunction[Fnum].fstream.stream);
+//             //
+//             Fnum++;
+//         }
+//         temp_P->ptr_c = temp_P->ptr_c->next;
+//     }
+//     temp_P->pFnum = Fnum;
+//     //最后再处理main
+//     // gnrt_main_stream(pMain);
+// }
 
 char* gnrt_stream(content* ptr){
+    // ptr = ptr->next;
     int sumBig = 1, numOfsc = 1;//{
     char c;
-    // f->fstream.stream = (char*)malloc(sizeof(char)*2048);
-    //memset?
     char* temp_s = (char*)malloc(sizeof(char)*2048);
     temp_s[0] = '{';
     while(sumBig){
@@ -224,12 +262,7 @@ char* gnrt_stream(content* ptr){
             if(c == '{') sumBig++;
             else if(c == '}') sumBig--;
             //删除空白符
-            else if(c == ' ' || c == '\r' || c == '\t' || isupper(c)/*|| !(islower(ptr->line[i])||ptr->line[i] == '_')*/){
-                // if(c == '\n'){
-                //     i=0;
-                //     ptr = ptr->next;
-                //     continue;
-                // }
+            else if(c == ' ' || c == '\r' || c == '\t' || isupper(c)){
                 i++;
                 continue;
             }
@@ -244,8 +277,6 @@ char* gnrt_stream(content* ptr){
                     i++;
                 }
                 if(pTrie->isEnd == 0){
-                    //树中没有该词
-                    // i = anci;
                     numOfsc = ancn;
                     if(!sign) i++;
                 }
@@ -256,7 +287,5 @@ char* gnrt_stream(content* ptr){
         ptr = ptr->next;
     }
     temp_s[numOfsc] = '\0';
-    // ptr = ptr->next;//正好直接进入下一个函数 最后一个函数的最后一行的ptr的next是空的！怎么办
-    // printf("%s\n",temp_s);
     return temp_s;
 }
