@@ -41,7 +41,7 @@ typedef struct program
     content *head_c,*ptr_c,*last_c;
     function pFunction[50];
     int pFnum;
-    char* pStream;
+    char pStream[102400];
 }Program;
 
 
@@ -52,8 +52,9 @@ void dfs(keepword *p);
 
 void read_code();
 // void idf_pFunction(int i);
-char* gnrt_stream(content*);
-char* gnrt_main_stream(content*);
+char* gnrt_stream(int,content*);
+
+int min(int a,int b){return a<b ? a : b;}
 
 //element
 keepword *root = NULL;
@@ -90,11 +91,14 @@ int main(){
             programs[numOfPrograms++] = temp_P;
             temp_P->id = id;
             temp_P->head_c = NULL;
-            temp_P->pStream = NULL;
+            memset(temp_P->pStream,'\0',sizeof(temp_P->pStream));
             temp_P->pFnum = 0;
             memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));//?????
             continue;
         }
+        //
+        // printf("%s",t);
+        //
         read_code();
     }
 
@@ -122,6 +126,8 @@ int main(){
     // }
     //
     for(int i=0;i<numOfPrograms;i++){
+        //处理第k个程序
+
         // printf("%d\n",programs[i]->id);
         // idf_pFunction(i);
         temp_P = programs[i];
@@ -136,34 +142,57 @@ int main(){
                     j++;
                 }
                 tn[j] = '\0';
-                //
-                puts(tn);
-                //
-                if(signMain){
-                    //生成主函数流和函数调用顺序
-                    if(strcmp(tn,"main")){
-                        temp_P->ptr_c = temp_P->pFunction[i].pos->next->next;
-                        temp_P->pStream = gnrt_main_stream(temp_P->ptr_c);
-                        signMain = 0;
-                        temp_P->ptr_c = temp_P->ptr_c->next;
-                        continue;
-                    }
-                }
-                for(int k=0;i<temp_P->pFnum;k++){
-                    if(!strcmp(tn,temp_P->pFunction[k].name)){
+                for(int k=0;k<temp_P->pFnum;k++){
+                     if(strcmp(tn,temp_P->pFunction[k].name) == 0){
                         //生成流
+                        if(signMain){
+                            if(strcmp(tn,"main") == 0){
+                                temp_P->ptr_c = temp_P->pFunction[k].pos->next->next;
+                                strcat(temp_P->pStream, gnrt_stream(1,temp_P->ptr_c));
+                                // temp_P->pStream = gnrt_stream(1,temp_P->ptr_c);
+                                signMain = 0;
+                                // ***debug stream***
+                                // printf("%s\n",temp_P->pStream);//已经存在pstream里了
+                                //
+                                break;
+                            }
+                        }
+                        //
+                        // printf("%s\n",temp_P->pFunction[k].pos->line);
+                        //
                         temp_P->ptr_c = temp_P->pFunction[k].pos->next->next;
-                        temp_P->pFunction[k].fstream.stream = gnrt_stream(temp_P->ptr_c);
+                        // temp_P->pFunction[k].fstream.stream = gnrt_stream(0,temp_P->ptr_c);
+                        strcat(temp_P->pStream,gnrt_stream(0,temp_P->ptr_c));
+
+                        //问题：是否能把temp_P.ptr同时移动到函数末尾以减少时间
+
                         // ***debug stream***
-                        printf("%s\n",temp_P->pFunction[k].fstream.stream);
+                        // printf("%s\n",temp_P->pFunction[k].fstream.stream);
+                        //
                         break;
                     }
                 }
             }
             temp_P->ptr_c = temp_P->ptr_c->next;
         }
-    }
+        //***debug pStream***
+        printf("%d\n",temp_P->id);
+        printf("%s\n",temp_P->pStream);
 
+        //free
+        temp_P->ptr_c = temp_P->head_c;
+        while(temp_P->ptr_c){
+            content* t = temp_P->ptr_c;
+            temp_P->ptr_c = temp_P->ptr_c->next;
+            free(t);
+        }
+
+    }
+    //***debug sequence***
+    // for(int i=0;i<temp_P->pFnum;i++){
+    //     printf("%s %d\n",temp_P->pFunction[i].name,temp_P->pFunction[i].seq);
+    // }
+    //
     // FILE *out;
     // out = fopen("temp_out.txt","w");
     // for(int i=0;i<numOfPrograms;i++){
@@ -214,71 +243,47 @@ void dfs(keepword *p){
 }
 
 void read_code(){
+    int len = strlen(t);
     if(temp_P->head_c == NULL){
         temp_P->ptr_c = (content*)malloc(sizeof(content));
-        temp_P->ptr_c->line = (char*)malloc(sizeof(char)*(strlen(t)+1));
+        temp_P->ptr_c->line = (char*)malloc(sizeof(char)*(len+1));
         strcpy(temp_P->ptr_c->line, t);
         temp_P->head_c = temp_P->ptr_c;
         temp_P->last_c = temp_P->head_c;
         temp_P->last_c->next = NULL;
     }else{
         temp_P->ptr_c = (content*)malloc(sizeof(content));
-        temp_P->ptr_c->line = (char*)malloc(sizeof(char)*(strlen(t)+1));
+        temp_P->ptr_c->line = (char*)malloc(sizeof(char)*(len+1));
         strcpy(temp_P->ptr_c->line, t);
         temp_P->last_c->next = temp_P->ptr_c;
         temp_P->last_c = temp_P->ptr_c;
         temp_P->last_c->next = NULL;
     }
+    static int sumOfB = 0;
     if(isalpha(t[0])){
-        int j=0;
-        while(isalpha(t[j])){
-            //初始化函数
-            temp_P->pFunction[temp_P->pFnum].name[j] = t[j];
-            j++;
+        if(sumOfB == 0){
+            int j=0;
+            while(isalpha(t[j])){
+                //初始化函数
+                temp_P->pFunction[temp_P->pFnum].name[j] = t[j];
+                j++;
+            }
+            temp_P->pFunction[temp_P->pFnum].name[j] = '\0';
+            insert_word(1,root,temp_P->pFunction[temp_P->pFnum].name,j);
+            temp_P->pFunction[temp_P->pFnum].pos = temp_P->ptr_c;
+            temp_P->pFunction[temp_P->pFnum].seq = -1;
+            temp_P->pFnum++;
         }
-        temp_P->pFunction[temp_P->pFnum].name[j] = '\0';
-        insert_word(1,root,temp_P->pFunction[temp_P->pFnum].name,j);
-        temp_P->pFunction[temp_P->pFnum].pos = temp_P->ptr_c;
-        temp_P->pFunction[temp_P->pFnum].seq = -1;
-        temp_P->pFnum++;
+    }
+    for(int i=0;i<len;i++){
+        if(t[i] == '{') sumOfB++;
+        else if(t[i] == '}') sumOfB--;
     }
 }
 
-// void idf_pFunction(int i){
-//     // int Fnum = 0;
-
-//     temp_P = programs[i];
-//     temp_P->ptr_c = temp_P->head_c;
-//     // memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));
-//     content* pMain = NULL;
-//     while(temp_P->ptr_c != NULL){
-//         if(isalpha(temp_P->ptr_c->line[0])){
-//             // int j = 0;
-//             // while(isalpha(temp_P->ptr_c->line[j])){
-//             //     //录入函数名
-//             //     temp_P->pFunction[Fnum].name[j] = temp_P->ptr_c->line[j];
-//             //     j++;
-//             // }
-//             if(strcmp(temp_P->pFunction[Fnum].name,"main") != 0){
-//                 //生成函数流
-//                 temp_P->pFunction[Fnum].fstream.stream = gnrt_stream(temp_P->ptr_c->next->next);
-//             }
-//             else pMain = temp_P->ptr_c;
-//             //
-//             printf("%s\n",temp_P->pFunction[Fnum].fstream.stream);
-//             //
-//             Fnum++;
-//         }
-//         temp_P->ptr_c = temp_P->ptr_c->next;
-//     }
-//     temp_P->pFnum = Fnum;
-//     //最后再处理main
-//     // gnrt_main_stream(pMain);
-// }
-
-char* gnrt_stream(content* ptr){
+char* gnrt_stream(int isMain,content* ptr){
     // ptr = ptr->next;
-    int sumBig = 1, numOfsc = 1;//{
+    int sumBig = 1, numOfsc = 1, seqOfFunc = 1;
     char c;
     char* temp_s = (char*)malloc(sizeof(char)*2048);
     temp_s[0] = '{';
@@ -310,6 +315,26 @@ char* gnrt_stream(content* ptr){
                     if(!sign) i++;
                 }
                 else if(pTrie->isEnd == 1 && pTrie->isFuc == 1){
+                    if(isMain){
+                        //
+                        // for(int k=ancn;k<=numOfsc;k++) printf("%c",temp_s[k]);
+                        //
+                        // putchar('\n');
+                        for(int k=0;k<temp_P->pFnum;k++){
+                            //
+                            // printf("%s\n",temp_P->pFunction[k].name);
+                            //
+                            if(strncmp(temp_s + ancn, temp_P->pFunction[k].name,numOfsc-ancn)==0){
+                                if(temp_P->pFunction[k].seq == -1){
+                                    temp_P->pFunction[k].seq = seqOfFunc++;
+                                    // //
+                                    // printf("%s: %d\n",temp_P->pFunction[k].name,temp_P->pFunction[k].seq);
+                                    // //
+                                }
+                                break;
+                            }
+                        }
+                    }
                     temp_s[ancn] = '\0';
                     strcat(temp_s,"FUNC");
                     numOfsc = ancn + 4;
@@ -322,8 +347,4 @@ char* gnrt_stream(content* ptr){
     }
     temp_s[numOfsc] = '\0';
     return temp_s;
-}
-
-char* gnrt_main_stream(content*){
-
 }
