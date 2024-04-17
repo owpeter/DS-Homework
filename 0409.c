@@ -2,16 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#define MAX_CHILD 37
+#define MAX_CHILD 61
 #define MAXPN 10 //提交时改大
 //struct
 
-char asc[] = {'0','1','2','3','4','5','6','7','8','9','_',
-                'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'};
+char asc1[] = {'0','1','2','3','4','5','6','7','8','9','_',
+                'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
+                'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
 int hash[128];
 
 typedef struct keepword {
-    int isEnd; 
+    int isEnd, isFuc;
     struct keepword* next[MAX_CHILD];  
 }keepword;
 
@@ -31,6 +32,7 @@ typedef struct function{
     char name[50];
     content* pos;
     stream fstream;
+    int seq;
 }function;
 
 typedef struct program
@@ -39,18 +41,19 @@ typedef struct program
     content *head_c,*ptr_c,*last_c;
     function pFunction[50];
     int pFnum;
-    stream* head_s,*ptr_s,*last_s;
+    char* pStream;
 }Program;
 
 
 //fucntion
 keepword *new_word();
-void insert_word(keepword *t, char *str,int len);
+void insert_word(int, keepword *t, char *str,int len);
 void dfs(keepword *p);
 
 void read_code();
 // void idf_pFunction(int i);
 char* gnrt_stream(content*);
+char* gnrt_main_stream(content*);
 
 //element
 keepword *root = NULL;
@@ -64,7 +67,7 @@ int main(){
     kw = fopen("keepwords.txt","r");
     memset(hash,-1,sizeof(hash));
     for(int i=0;i<MAX_CHILD;i++){
-        hash[asc[i]] = i;
+        hash[asc1[i]] = i;
     }
     root = new_word();
 
@@ -72,7 +75,7 @@ int main(){
     while(fscanf(kw,"%s",t)!=EOF){
         if(t[0] == '\n') continue;
         int len = strlen(t);
-        insert_word(root,t,len);
+        insert_word(0,root,t,len);
     }
     // dfs(root);
     fc = fopen("tc.txt","r");
@@ -87,13 +90,14 @@ int main(){
             programs[numOfPrograms++] = temp_P;
             temp_P->id = id;
             temp_P->head_c = NULL;
-            temp_P->head_s = NULL;
+            temp_P->pStream = NULL;
             temp_P->pFnum = 0;
             memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));//?????
             continue;
         }
         read_code();
     }
+
     // *** debug input ***
     // FILE *out;
     // out = fopen("temp_out.txt","w");
@@ -111,11 +115,18 @@ int main(){
     //     }
     // }
     //
+    //
+    // for(int i=0;i<temp_P->pFnum;i++){
+    //     printf("%s\n",temp_P->pFunction[i].name);
+    //     printf("%s\n",temp_P->pFunction[i].pos->next->next->line);
+    // }
+    //
     for(int i=0;i<numOfPrograms;i++){
         // printf("%d\n",programs[i]->id);
         // idf_pFunction(i);
         temp_P = programs[i];
         temp_P->ptr_c = temp_P->head_c;
+        int signMain = 1;
         while(temp_P->ptr_c){
             if(isalpha(temp_P->ptr_c->line[0])){
                 int j=0;
@@ -128,14 +139,28 @@ int main(){
                 //
                 puts(tn);
                 //
-                for(int i=0;i<temp_P->pFnum;i++){
-                    if(strcmp(tn,temp_P->pFunction[i].name)){
+                if(signMain){
+                    //生成主函数流和函数调用顺序
+                    if(strcmp(tn,"main")){
+                        temp_P->ptr_c = temp_P->pFunction[i].pos->next->next;
+                        temp_P->pStream = gnrt_main_stream(temp_P->ptr_c);
+                        signMain = 0;
+                        temp_P->ptr_c = temp_P->ptr_c->next;
+                        continue;
+                    }
+                }
+                for(int k=0;i<temp_P->pFnum;k++){
+                    if(!strcmp(tn,temp_P->pFunction[k].name)){
                         //生成流
-                        temp_P->pFunction[i].fstream.stream = gnrt_stream(temp_P->pFunction[i].pos);
-                        printf("%s\n",temp_P->pFunction[i].fstream.stream);
+                        temp_P->ptr_c = temp_P->pFunction[k].pos->next->next;
+                        temp_P->pFunction[k].fstream.stream = gnrt_stream(temp_P->ptr_c);
+                        // ***debug stream***
+                        printf("%s\n",temp_P->pFunction[k].fstream.stream);
+                        break;
                     }
                 }
             }
+            temp_P->ptr_c = temp_P->ptr_c->next;
         }
     }
 
@@ -154,19 +179,20 @@ keepword *new_word(){
     keepword *t = (keepword*)malloc(sizeof(keepword));
     int i=0;
     for(int i=0;i<MAX_CHILD;i++) t->next[i] = NULL;
-    t->isEnd = 0;
+    t->isEnd = t->isFuc = 0;
     return t;
 }
 
-void insert_word(keepword *t, char *str,int len){
+void insert_word(int isFuc,keepword *t, char *str,int len){
     for(int i=0;i<len;i++){
         if(t->next[hash[str[i]]] == NULL){
            keepword *p = new_word();
            t->next[hash[str[i]]] = p;
-           for(int i=0;i<=9;i++) t->next[hash[asc[i]]] = p;
+           for(int i=0;i<=9;i++) t->next[hash[asc1[i]]] = p;
         }
         t = t->next[hash[str[i]]];
     }
+    t->isFuc = isFuc;
     t->isEnd = 1;
 }
 
@@ -206,11 +232,14 @@ void read_code(){
     if(isalpha(t[0])){
         int j=0;
         while(isalpha(t[j])){
-            //录入函数名字
+            //初始化函数
             temp_P->pFunction[temp_P->pFnum].name[j] = t[j];
             j++;
         }
-        temp_P->pFunction[temp_P->pFnum].pos = temp_P->ptr_c->next;
+        temp_P->pFunction[temp_P->pFnum].name[j] = '\0';
+        insert_word(1,root,temp_P->pFunction[temp_P->pFnum].name,j);
+        temp_P->pFunction[temp_P->pFnum].pos = temp_P->ptr_c;
+        temp_P->pFunction[temp_P->pFnum].seq = -1;
         temp_P->pFnum++;
     }
 }
@@ -262,7 +291,7 @@ char* gnrt_stream(content* ptr){
             if(c == '{') sumBig++;
             else if(c == '}') sumBig--;
             //删除空白符
-            else if(c == ' ' || c == '\r' || c == '\t' || isupper(c)){
+            else if(c == ' ' || c == '\r' || c == '\t'){
                 i++;
                 continue;
             }
@@ -280,6 +309,11 @@ char* gnrt_stream(content* ptr){
                     numOfsc = ancn;
                     if(!sign) i++;
                 }
+                else if(pTrie->isEnd == 1 && pTrie->isFuc == 1){
+                    temp_s[ancn] = '\0';
+                    strcat(temp_s,"FUNC");
+                    numOfsc = ancn + 4;
+                }
                 continue;
             }
             temp_s[numOfsc++] = ptr->line[i++];
@@ -288,4 +322,8 @@ char* gnrt_stream(content* ptr){
     }
     temp_s[numOfsc] = '\0';
     return temp_s;
+}
+
+char* gnrt_main_stream(content*){
+
 }
