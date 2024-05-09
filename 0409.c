@@ -3,8 +3,55 @@
 #include <string.h>
 #include <ctype.h>
 #define MAX_CHILD 61
-#define MAXPN 100 //提交时改大
-//struct
+#define MAXPN 10000 //提交时改大
+#define MAXTREN 10000 // 提交是改大
+#define MAXLEN 2048
+#define max2(a,b) ((a)>(b)?(a):(b))
+int **Dp, MaxDP=3300;								//for dynamic programming
+int min3(int a, int b, int c)
+{
+    int min = a < b ? a : b;
+    return min < c ? min : c;
+}
+void error2(char *s)
+{
+    fprintf(stderr,"%s\n",s); 
+    exit(-1); 
+}
+void initDP()
+{		
+    int i;
+    Dp = (int **)malloc(MaxDP*sizeof(int *));
+    for(i=0; i<MaxDP; i++)
+    Dp[i] = (int *)malloc(MaxDP*sizeof(int));	
+}
+int editdistDP(char *str1, char *str2) 
+{
+    int i,j;
+    int len1, len2;
+    static int flag=0;
+	
+    (flag++) ? Dp : initDP(); 
+    // if(flag++) Dp;
+    // else initDP();
+    len1 = strlen(str1)+1; len2 = strlen(str2)+1;
+    (max2(len1,len2)>=MaxDP) ? error2("DP memory error!") : len1;
+    // if(max2(len1,len2)>=MaxDP);
+    // else len1;   
+    for (i=0; i<=len1; i++) {
+        for (j=0; j<=len2; j++) {
+            if (i==0)
+                Dp[i][j] = j;
+            else if (j==0)
+                Dp[i][j] = i;
+            else if (str1[i-1] == str2[j-1])
+                Dp[i][j] = Dp[i-1][j-1];
+            else
+                Dp[i][j] = 1 + min3(Dp[i][j-1], Dp[i-1][j], Dp[i-1][j-1]);
+        }
+    }
+    return Dp[len1][len2];
+}
 
 char asc1[] = {'0','1','2','3','4','5','6','7','8','9','_',
                 'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
@@ -29,7 +76,7 @@ typedef struct stream{//link
 }stream;
 
 typedef struct function{
-    char name[50];
+    char name[MAXLEN];
     content* pos;
     stream fstream;
     int seq;
@@ -39,9 +86,9 @@ typedef struct program
 {
     int id;
     content *head_c,*ptr_c,*last_c;
-    function pFunction[50];
+    function pFunction[MAXLEN];
     int pFnum;
-    char pStream[102400];
+    char pStream[MAXLEN];
 }Program;
 
 
@@ -50,7 +97,7 @@ keepword *new_word();
 void insert_word(int, keepword *t, char *str,int len);
 void dfs(keepword *p);
 
-void read_code();
+void read_code(char*);
 // void idf_pFunction(int i);
 char* gnrt_stream(int,content*);
 
@@ -65,17 +112,18 @@ int cmp(const void *p1, const void *p2) {
 
 //element
 keepword *root = NULL;
-char t[1024];
+
 int numOfPrograms = 0;
 Program *programs[MAXPN],*temp_P;
 
+int uset[MAXTREN];
+int rank[MAXTREN];
+void makeSet();
+int find(int i);
+void unite(int x,int y);
+int hashmap[MAXPN][MAXPN];
+
 int main(){
-    //*** debug output ***
-    FILE *out;
-    out = fopen("temp_out.txt","w");
-    //
-
-
     //预处理keepword
     FILE *kw,*fc;
     kw = fopen("keepwords.txt","r");
@@ -84,64 +132,42 @@ int main(){
         hash[asc1[i]] = i;
     }
     root = new_word();
-
-    int cnt=1;
+    char t[MAXLEN];
+    memset(t,0,sizeof(t));
     while(fscanf(kw,"%s",t)!=EOF){
         if(t[0] == '\n') continue;
         int len = strlen(t);
         insert_word(0,root,t,len);
     }
-    // dfs(root);
     fc = fopen("codes.txt","r");
-    // programs = (Program*)malloc(sizeof(Program));
     int id;
-    while (fgets(t,1024,fc)!=NULL)
+    
+    while (fgets(t,MAXLEN,fc)!=NULL)
     {
         if(t[0] == '\n') continue;
         if(isdigit(t[0])){
             sscanf(t,"%d",&id);
             temp_P = (Program*)malloc(sizeof(Program));
-            programs[numOfPrograms++] = temp_P;
             temp_P->id = id;
             temp_P->head_c = NULL;
             memset(temp_P->pStream,'\0',sizeof(temp_P->pStream));
             temp_P->pFnum = 0;
-            memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));//?????
+            for(int i=0;i<MAXLEN;i++){
+                memset(temp_P->pFunction[i].name,'\0',sizeof(temp_P->pFunction[i].name));
+                temp_P->pFunction[i].pos = NULL;
+                temp_P->pFunction[i].seq = -1;
+            }
+            programs[numOfPrograms++] = temp_P;
+            // memset(temp_P->pFunction,'\0',sizeof(temp_P->pFunction));//?????
             continue;
         }
         //
         // printf("%s",t);
         //
-        read_code();
+        read_code(t);
     }
-
-
-    // *** debug input ***
-    // FILE *out;
-    // out = fopen("temp_out.txt","w");
-    // for(int i=0;i<numOfPrograms;i++){
-    //     fprintf(out,"%d\n",programs[i]->id);
-    //     // programs[i]->ptr_c = programs[i]->head_c;
-    //     // while(programs[i]->ptr_c != NULL){
-    //     //     // fprintf(out,"%s",programs[i]->ptr_c->line);
-    //     //     int k=0;
-    //     //     while(programs[i]->ptr_c->line[k]){
-    //     //         fprintf(out,"%d ",programs[i]->ptr_c->line[k++]);
-    //     //     }
-    //     //     fprintf(out,"\n");
-    //     //     programs[i]->ptr_c = programs[i]->ptr_c->next;
-    //     // }
-    //     // for(int j=0;j<programs[i]->pFnum;j++){
-    //     //     fprintf(out,"line: %s\n",programs[i]->pFunction[j].pos->next->line);
-    //     // }
-    // }
-
-    //
     for(int i=0;i<numOfPrograms;i++){
         //处理第k个程序
-        
-        // printf("%d\n",programs[i]->id);
-        // idf_pFunction(i);
         temp_P = programs[i];
         temp_P->ptr_c = temp_P->head_c;
         
@@ -149,47 +175,50 @@ int main(){
         for(int j=0;j<temp_P->pFnum;j++){
             if(strcmp("main",temp_P->pFunction[j].name) == 0){
                 strcat(temp_P->pStream,gnrt_stream(1,temp_P->pFunction[j].pos->next->next));
-                //
-                // printf("%s\n",temp_P->pStream);
-                //
                 temp_P->pFunction[j].seq = 0;
                 break;
             }
         }
-       
         qsort(temp_P->pFunction,temp_P->pFnum,sizeof(temp_P->pFunction[0]),cmp);
-        for(int j=1;j<temp_P->pFnum;j++){
-            strcat(temp_P->pStream,gnrt_stream(0,temp_P->pFunction[j].pos->next->next));
-            //
-            // printf("%s\n",temp_P->pStream);
-        }
-        //***debug pStream***
-        
-        fprintf(out,"%d\n",temp_P->id);
-        fprintf(out,"%s\n",temp_P->pStream);
-        //free
-        temp_P->ptr_c = temp_P->head_c;
-        while(temp_P->ptr_c){
-            content* t = temp_P->ptr_c;
-            temp_P->ptr_c = temp_P->ptr_c->next;
-            free(t);
+        for(int j=0;j<temp_P->pFnum;j++){
+            if(temp_P->pFunction[j].seq > 0){
+                strcat(temp_P->pStream,gnrt_stream(0,temp_P->pFunction[j].pos->next->next));
+            }
         }
 
+        //free
+        // temp_P->ptr_c = temp_P->head_c;
+        // while(temp_P->ptr_c){
+        //     content* t = temp_P->ptr_c;
+        //     temp_P->ptr_c = temp_P->ptr_c->next;
+        //     free(t);
+        // }
+
     }
-    fclose(out);
-    //***debug sequence***
-    // for(int i=0;i<temp_P->pFnum;i++){
-    //     printf("%s %d\n",temp_P->pFunction[i].name,temp_P->pFunction[i].seq);
-    // }
-    //
-    // FILE *out;
-    // out = fopen("temp_out.txt","w");
-    // for(int i=0;i<numOfPrograms;i++){
-    //     fprintf(out,"id:%d\n",programs[i]->id);
-    //     for(int j=0;j<programs[i]->pFnum;j++){
-    //         fprintf(out,"%s\n",programs[i]->pFunction[j]);
-    //     }
-    // }
+
+    makeSet();
+    for(int i=0;i<numOfPrograms;i++){
+        for(int j=i+1;j<numOfPrograms;j++){
+            int editDistance = editdistDP(programs[i]->pStream,programs[j]->pStream);
+            double sim = 1 - (double)editDistance / max2(strlen(programs[i]->pStream),strlen(programs[j]->pStream));
+            if(sim > 0.95) unite(i,j);
+        }
+    }
+    memset(hashmap,0,sizeof(hashmap));
+    for(int i=0;i<numOfPrograms;i++){
+        int t = find(i);
+        if(t != i){
+            hashmap[t][++hashmap[t][0]] = i;
+        }
+    }
+    for(int i=0;i<numOfPrograms;i++){
+        if(hashmap[i][0]){
+            for(int j=1;j<=hashmap[i][0];j++) printf("%d ",programs[hashmap[i][j]]->id);
+            printf("%d\n",programs[i]->id);
+        }
+    }
+    fclose(fc);
+    fclose(kw);
 
 }
 
@@ -231,7 +260,7 @@ void dfs(keepword *p){
     }
 }
 
-void read_code(){
+void read_code(char t[]){
     int len = strlen(t);
     if(temp_P->head_c == NULL){
         temp_P->ptr_c = (content*)malloc(sizeof(content));
@@ -275,13 +304,12 @@ char* gnrt_stream(int isMain,content* ptr){
     // ptr = ptr->next;
     int sumBig = 1, numOfsc = 1, seqOfFunc = 1;
     char c;
-    char* temp_s = (char*)malloc(sizeof(char)*2048);
+    char* temp_s = (char*)malloc(sizeof(char)*MAXLEN);
     temp_s[0] = '{';
     while(sumBig){
         int i=0;
         while(sumBig && ptr->line[i] != '\n'){
             c = ptr->line[i];
-            // putchar(c);
             //通过识别大括号个数以确定该函数是否已经结束
             if(c == '{') sumBig++;
             else if(c == '}') sumBig--;
@@ -306,20 +334,12 @@ char* gnrt_stream(int isMain,content* ptr){
                 }
                 else if(pTrie->isEnd == 1 && pTrie->isFuc == 1){
                     if(isMain){
-                        //
-                        // for(int k=ancn;k<=numOfsc;k++) printf("%c",temp_s[k]);
-                        //
-                        // putchar('\n');
                         for(int k=0;k<temp_P->pFnum;k++){
-                            //
-                            // printf("%s\n",temp_P->pFunction[k].name);
-                            //
+
                             if(strncmp(temp_s + ancn, temp_P->pFunction[k].name,numOfsc-ancn)==0){
                                 if(temp_P->pFunction[k].seq == -1){
                                     temp_P->pFunction[k].seq = seqOfFunc++;
-                                    // //
-                                    // printf("%s: %d\n",temp_P->pFunction[k].name,temp_P->pFunction[k].seq);
-                                    // //
+
                                 }
                                 break;
                             }
@@ -333,8 +353,35 @@ char* gnrt_stream(int isMain,content* ptr){
             }
             temp_s[numOfsc++] = ptr->line[i++];
         }
-        ptr = ptr->next;
+        if(sumBig) ptr = ptr->next;
     }
     temp_s[numOfsc] = '\0';
     return temp_s;
+}
+
+void makeSet(){
+    for (int i = 1; i <= numOfPrograms; i++)
+	{
+        //各自为各自的代表
+        uset[i] = i;
+    }
+}
+int find(int i){
+	if (i == uset[i])
+	{
+		return i;
+	}
+	return find(uset[i]);
+}
+
+void unite(int x,int y)
+{
+	//先找相对应的代表
+	x = find(x);
+	y = find(y);
+	if (x == y)
+	{
+		return;
+	}
+	uset[x] = y;
 }
