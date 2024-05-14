@@ -78,6 +78,7 @@ typedef struct stream{//link
 typedef struct function{
     char name[101];
     content* pos;
+    content* last;
     stream fstream;
     int seq;
 }function;
@@ -169,7 +170,10 @@ int main(){
         temp_P->ptr_c = temp_P->head_c;
         for(int j=0;j<temp_P->pFnum;j++){
             if(strcmp("main",temp_P->pFunction[j].name) == 0){
-                strcat(temp_P->pStream,gnrt_stream(1,temp_P->pFunction[j].pos->next->next));
+                // strcat(temp_P->pStream,gnrt_stream(1,temp_P->pFunction[j].pos->next->next));
+                strcat(temp_P->pStream,gnrt_stream(1,temp_P->pFunction[j].pos));
+                // printf("%s\n",temp_P->pFunction[j].name);
+                // printf("%s\n",gnrt_stream(1,temp_P->pFunction[j].pos));
                 temp_P->pFunction[j].seq = 0;
                 break;
             }
@@ -177,10 +181,16 @@ int main(){
         qsort(temp_P->pFunction,temp_P->pFnum,sizeof(temp_P->pFunction[0]),cmp);
         for(int j=0;j<temp_P->pFnum;j++){
             if(temp_P->pFunction[j].seq > 0){
-                strcat(temp_P->pStream,gnrt_stream(0,temp_P->pFunction[j].pos->next->next));
+                // strcat(temp_P->pStream,gnrt_stream(0,temp_P->pFunction[j].pos->next->next));
+                strcat(temp_P->pStream,gnrt_stream(0,temp_P->pFunction[j].pos));
+                // printf("%s\n",temp_P->pFunction[j].name);
+                // printf("%s\n",gnrt_stream(0,temp_P->pFunction[j].pos));
             }
         }
-
+        //
+        // FILE* out;
+        // out = fopen("temp_out.txt","w");
+        // printf("%s",temp_P->pStream);
     }
     makeSet();
     for(int i=0;i<numOfPrograms;i++){
@@ -289,28 +299,35 @@ void read_code(char *t){
         if(t[i] == '{') sumOfB++;
         else if(t[i] == '}') sumOfB--;
     }
+    
 }
 
 char* gnrt_stream(int isMain,content* ptr){
     // ptr = ptr->next;
-    long sumBig = 1, numOfsc = 1, seqOfFunc = 1;
+    // long sumBig = 1, numOfsc = 1, seqOfFunc = 1;
+    long sumBig = 0, numOfsc = 0, seqOfFunc = 1;
     char c;
+    
     // puts(ptr->line);
     char* temp_s = (char*)malloc(sizeof(char)*MAXLEN);
-    temp_s[0] = '{';
-    while(sumBig){
+    int flag = 0;//是否进入过函数了
+    // temp_s[0] = '{';
+    while(1){
         int i=0;
-        while(sumBig && ptr->line[i] >0 && ptr->line[i] != '\n'){
+        while(ptr->line[i] >0 && ptr->line[i] != '\n'){
             c = ptr->line[i];
             //通过识别大括号个数以确定该函数是否已经结束
-            if(c == '{') sumBig++;
+            if(c == '{'){
+                sumBig++;
+                flag = 1;
+            }
             else if(c == '}') sumBig--;
             //删除空白符
             else if(c == ' ' || c == '\r' || c == '\t'){
                 i++;
                 continue;
             }
-            else if(isalpha(c)||c == '_'){
+            else if(sumBig && isalpha(c)||c == '_'){
                 int ancn = numOfsc;
                 keepword* pTrie = root;
                 int sign = 0;
@@ -328,7 +345,7 @@ char* gnrt_stream(int isMain,content* ptr){
                     if(isMain){
                         for(int k=0;k<temp_P->pFnum;k++){
                             if(strncmp(temp_s + ancn, temp_P->pFunction[k].name,numOfsc-ancn)==0){
-                                if(temp_P->pFunction[k].seq == -1 && (ptr->line[i] == '('||ptr->line[i] == ' ')){
+                                if(temp_P->pFunction[k].seq == -1 && (ptr->line[i] == '(' || ptr->line[i] == ' ')){
                                     temp_P->pFunction[k].seq = seqOfFunc++;
                                 }
                                 break;
@@ -341,11 +358,18 @@ char* gnrt_stream(int isMain,content* ptr){
                 }
                 continue;
             }
-            temp_s[numOfsc++] = ptr->line[i++];
+
+            if(sumBig) temp_s[numOfsc++] = ptr->line[i++];
+            else if(flag==0 && sumBig == 0) i++;
+            else if(flag == 1 && sumBig == 0) break;
         }
         if(sumBig && ptr->next != NULL) ptr = ptr->next;
+        else if(sumBig == 0 && flag == 0 && ptr->next != NULL) ptr = ptr->next; 
         else break;
     }
+    
+    
+    temp_s[numOfsc++] = '}';
     temp_s[numOfsc] = '\0';
     return temp_s;
 }
