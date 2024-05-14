@@ -179,6 +179,9 @@ int main(){
             }
         }
         qsort(temp_P->pFunction,temp_P->pFnum,sizeof(temp_P->pFunction[0]),cmp);
+        // for(int j=0;j<temp_P->pFnum;j++){
+        //     printf("%d %s\n",temp_P->pFunction[j].seq,temp_P->pFunction[j].name);
+        // }
         for(int j=0;j<temp_P->pFnum;j++){
             if(temp_P->pFunction[j].seq > 0){
                 // strcat(temp_P->pStream,gnrt_stream(0,temp_P->pFunction[j].pos->next->next));
@@ -193,27 +196,24 @@ int main(){
         // printf("%s",temp_P->pStream);
     }
     makeSet();
+    int ans[50];
     for(int i=0;i<numOfPrograms;i++){
-        for(int j=i+1;j<numOfPrograms;j++){
-            if(find(j) == j){
+        if(find(i) == i){
+            int cnt = 0;
+            for(int j=0;j<numOfPrograms;j++){
+                if(j == i) continue;
                 int editDistance = editdistDP(programs[i]->pStream,programs[j]->pStream);
                 double sim = 1 - (double)editDistance / max2(strlen(programs[i]->pStream),strlen(programs[j]->pStream));
-                if(sim > 0.95) unite(j,i);
+                if(sim > 0.95){
+                    unite(j,i);
+                    ans[cnt++] = j;
+                }
             }
-        }
-    }
-    memset(hashmap,0,sizeof(hashmap));
-    for(int i=0;i<numOfPrograms;i++){
-        int t = find(i);
-        if(t != i){
-            hashmap[t][++hashmap[t][0]] = i;
-        }
-    }
-    for(int i=0;i<numOfPrograms;i++){
-        if(hashmap[i][0]){
-            printf("%lld ",programs[i]->id);
-            for(int j=1;j<=hashmap[i][0];j++) printf("%lld ",programs[hashmap[i][j]]->id);
-            putchar('\n');
+            if(cnt){
+                printf("%lld ",programs[i]->id);
+                for(int k=0;k<cnt;k++) printf("%lld ",programs[ans[k]]->id);
+                putchar('\n');
+            }
         }
     }
     fclose(fc);
@@ -280,19 +280,22 @@ void read_code(char *t){
         
     }
     static long sumOfB = 0;
-    if(isalpha(t[0])||t[0]=='_'){
+    if(isalpha(t[0])||isdigit(t[0])||t[0]=='_'){
         if(sumOfB == 0){
             int j=0;
-            while(isalpha(t[j])||t[j] == '_'){
+            while(isalpha(t[j])||isdigit(t[j])||t[j] == '_'){
                 //初始化函数
                 temp_P->pFunction[temp_P->pFnum].name[j] = t[j];
                 j++;
             }
             temp_P->pFunction[temp_P->pFnum].name[j] = '\0';
-            insert_word(1,root,temp_P->pFunction[temp_P->pFnum].name,j);
-            temp_P->pFunction[temp_P->pFnum].pos = temp_P->ptr_c;
-            temp_P->pFunction[temp_P->pFnum].seq = -1;
-            temp_P->pFnum++;
+            if(strcmp(temp_P->pFunction[temp_P->pFnum].name,"struct") != 0){
+                insert_word(1,root,temp_P->pFunction[temp_P->pFnum].name,j);
+                temp_P->pFunction[temp_P->pFnum].pos = temp_P->ptr_c;
+                temp_P->pFunction[temp_P->pFnum].seq = -1;
+                temp_P->pFnum++;
+            }
+            
         }
     }
     for(int i=0;i<len;i++){
@@ -313,8 +316,9 @@ char* gnrt_stream(int isMain,content* ptr){
     int flag = 0;//是否进入过函数了
     // temp_s[0] = '{';
     while(1){
-        int i=0;
+        int i=0,read_func = 0,in_func_sign = 0;
         while(ptr->line[i] >0 && ptr->line[i] != '\n'){
+            
             c = ptr->line[i];
             //通过识别大括号个数以确定该函数是否已经结束
             if(c == '{'){
@@ -322,12 +326,17 @@ char* gnrt_stream(int isMain,content* ptr){
                 flag = 1;
             }
             else if(c == '}') sumBig--;
-            //删除空白符
+
+            else if(c == '(' && read_func == 1) in_func_sign++;
+            else if(c == ')' && read_func == 1){
+                in_func_sign--;
+                if(in_func_sign == 0) read_func = 0;
+            }
             else if(c == ' ' || c == '\r' || c == '\t'){
                 i++;
                 continue;
             }
-            else if(sumBig && isalpha(c)||c == '_'){
+            else if(sumBig && (isalpha(c)||c == '_')){
                 int ancn = numOfsc;
                 keepword* pTrie = root;
                 int sign = 0;
@@ -337,16 +346,20 @@ char* gnrt_stream(int isMain,content* ptr){
                     pTrie = pTrie->next[hash[ptr->line[i]]];
                     i++;
                 }
-                if(pTrie!=NULL && pTrie->isEnd == 0){
+                temp_s[numOfsc] = '\0';
+                if(pTrie!=NULL && pTrie->isEnd == 0){   
                     numOfsc = ancn;
                     if(!sign) i++;
                 }
                 else if(pTrie!=NULL && pTrie->isEnd == 1 && pTrie->isFuc == 1){
                     if(isMain){
                         for(int k=0;k<temp_P->pFnum;k++){
-                            if(strncmp(temp_s + ancn, temp_P->pFunction[k].name,numOfsc-ancn)==0){
+                            if(strcmp(temp_s + ancn, temp_P->pFunction[k].name)==0){
                                 if(temp_P->pFunction[k].seq == -1 && (ptr->line[i] == '(' || ptr->line[i] == ' ')){
-                                    temp_P->pFunction[k].seq = seqOfFunc++;
+                                    if(in_func_sign == 0){
+                                        temp_P->pFunction[k].seq = seqOfFunc++;//调用顺序
+                                        read_func = 1;
+                                    }
                                 }
                                 break;
                             }
